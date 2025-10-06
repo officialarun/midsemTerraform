@@ -1,5 +1,5 @@
 resource "azurerm_network_security_group" "nsg" {
-  name                = "nginx-vm-nsg"
+  name                = "nginx-vm-nsg-1"
   location            = var.location
   resource_group_name = var.resource_group_name
 }
@@ -68,7 +68,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   source_image_reference {
     publisher = "Canonical"
     offer     = "UbuntuServer"
-    sku       = "20_04-lts"
+    sku       = "18_04-lts-gen2"
     version   = "latest"
   }
 }

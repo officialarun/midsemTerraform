@@ -5,7 +5,7 @@ variable "rg_name" {
 
 variable "location" {
   description = "Azure region"
-  default     = "East US"
+  default     = "eastasia"
 }
 
 variable "prefix" {

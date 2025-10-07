@@ -2,7 +2,7 @@ trigger:
 - master
 
 pool:
-  name: Agent_Arun
+  name: Agent_Arun   # your self-hosted agent pool name
 
 variables:
   vm_user: 'arun'
@@ -11,14 +11,15 @@ variables:
 
 steps:
 
+# Step 1: Checkout your repository
 - checkout: self
 
-
+# Step 2: Install Terraform
 - task: TerraformInstaller@1
   inputs:
     terraformVersion: $(terraformVersion)
 
-
+# Step 3: Run Terraform to create VM
 - task: AzureCLI@2
   displayName: 'Run Terraform'
   inputs:
@@ -42,9 +43,9 @@ steps:
 
       echo "Fetching VM Public IP..."
       terraform output -raw vm_public_ip > vm_ip.txt
-      echo "VM Public IP: $(cat vm_ip.txt)"
+      cat vm_ip.txt
 
-
+# Step 4: Copy nginx-app to VM
 - task: AzureCLI@2
   displayName: 'Copy nginx-app files to VM'
   inputs:
@@ -60,9 +61,9 @@ steps:
       sudo apt-get install -y sshpass
 
       echo "Copying nginx-app directory to VM ($VM_IP)..."
-      sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:~/
+      sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:/home/$(vm_user)/
 
-
+# Step 5: Run setup_nginx.sh on the VM
 - task: AzureCLI@2
   displayName: 'Run setup_nginx.sh on VM'
   inputs:
@@ -74,5 +75,8 @@ steps:
       VM_IP=$(terraform output -raw vm_public_ip)
 
       echo "Connecting to VM ($VM_IP) and running setup_nginx.sh..."
-      sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "cd ~/nginx-app && chmod +x setup_nginx.sh && ./setup_nginx.sh"
-
+      sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "
+        cd ~/nginx-app &&
+        chmod +x setup_nginx.sh &&
+        ./setup_nginx.sh
+      "

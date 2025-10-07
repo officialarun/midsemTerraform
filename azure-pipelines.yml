@@ -1,83 +1,5 @@
-# trigger:
-# - master
-
-# pool:
-#   name: Agent_Arun
-
-# variables:
-#   vm_user: 'arun'
-#   vm_password: 'Pandey@2024Azure!'   
-#   terraformVersion: '1.8.0'
-
-# steps:
-
-# - checkout: self
-
-
-# - task: TerraformInstaller@1
-#   inputs:
-#     terraformVersion: $(terraformVersion)
-
-
-# - task: AzureCLI@2
-#   displayName: 'Run Terraform'
-#   inputs:
-#     azureSubscription: 'service-arun-app'  
-#     scriptType: bash
-#     scriptLocation: inlineScript
-#     inlineScript: |
-#       cd $(System.DefaultWorkingDirectory)
-
-#       echo "Initializing Terraform..."
-#       terraform init -input=false
-
-#       echo "Validating Terraform configuration..."
-#       terraform validate
-
-#       echo "Running Terraform plan..."
-#       terraform plan -out=tfplan
-
-#       echo "Applying Terraform changes..."
-#       terraform apply -auto-approve tfplan
-
-#       echo "Fetching VM Public IP..."
-#       terraform output -raw vm_public_ip > vm_ip.txt
-#       echo "VM Public IP: $(cat vm_ip.txt)"
-
-
-# - task: AzureCLI@2
-#   displayName: 'Copy nginx-app files to VM'
-#   inputs:
-#     azureSubscription: 'service-arun-app'
-#     scriptType: bash
-#     scriptLocation: inlineScript
-#     inlineScript: |
-#       cd $(System.DefaultWorkingDirectory)
-#       VM_IP=$(terraform output -raw vm_public_ip)
-
-#       echo "Installing sshpass..."
-#       sudo apt-get update -y
-#       sudo apt-get install -y sshpass
-
-#       echo "Copying nginx-app directory to VM ($VM_IP)..."
-#       sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:~/
-
-
-# - task: AzureCLI@2
-#   displayName: 'Run setup_nginx.sh on VM'
-#   inputs:
-#     azureSubscription: 'service-arun-app'
-#     scriptType: bash
-#     scriptLocation: inlineScript
-#     inlineScript: |
-#       cd $(System.DefaultWorkingDirectory)
-#       VM_IP=$(terraform output -raw vm_public_ip)
-
-#       echo "Connecting to VM ($VM_IP) and running setup_nginx.sh..."
-#       sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "cd ~/nginx-app && chmod +x setup_nginx.sh && ./setup_nginx.sh"
-
 trigger:
-  - master
+- master
 
 pool:
   name: Agent_Arun
@@ -89,81 +11,68 @@ variables:
 
 steps:
 
-# Checkout the repo
 - checkout: self
 
-# Install Terraform
+
 - task: TerraformInstaller@1
   inputs:
     terraformVersion: $(terraformVersion)
 
-# Run Terraform to create resources
+
 - task: AzureCLI@2
   displayName: 'Run Terraform'
   inputs:
     azureSubscription: 'service-arun-app'  
-    scriptType: ps        # PowerShell for Windows agent
+    scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
-      cd "$(System.DefaultWorkingDirectory)"
+      cd $(System.DefaultWorkingDirectory)
 
-      Write-Host "Initializing Terraform..."
+      echo "Initializing Terraform..."
       terraform init -input=false
 
-      Write-Host "Validating Terraform configuration..."
+      echo "Validating Terraform configuration..."
       terraform validate
 
-      Write-Host "Running Terraform plan..."
+      echo "Running Terraform plan..."
       terraform plan -out=tfplan
 
-      Write-Host "Applying Terraform changes..."
+      echo "Applying Terraform changes..."
       terraform apply -auto-approve tfplan
 
-      Write-Host "Fetching VM Public IP..."
-      $vm_ip = terraform output -raw vm_public_ip
-      $vm_ip | Out-File -FilePath vm_ip.txt
-      Write-Host "VM Public IP: $vm_ip"
+      echo "Fetching VM Public IP..."
+      terraform output -raw vm_public_ip > vm_ip.txt
+      echo "VM Public IP: $(cat vm_ip.txt)"
 
-# Copy nginx-app folder to VM using Posh-SSH
+
 - task: AzureCLI@2
   displayName: 'Copy nginx-app files to VM'
   inputs:
     azureSubscription: 'service-arun-app'
-    scriptType: ps
+    scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
-      cd "$(System.DefaultWorkingDirectory)"
-      $vm_ip = terraform output -raw vm_public_ip
+      cd $(System.DefaultWorkingDirectory)
+      VM_IP=$(terraform output -raw vm_public_ip)
 
-      Write-Host "Installing Posh-SSH module..."
-      Install-Module -Name Posh-SSH -Force -Scope CurrentUser
+      echo "Installing sshpass..."
+      sudo apt-get update -y
+      sudo apt-get install -y sshpass
 
-      $SecurePassword = ConvertTo-SecureString "$(vm_password)" -AsPlainText -Force
-      $Credential = New-Object System.Management.Automation.PSCredential ("$(vm_user)", $SecurePassword)
+      echo "Copying nginx-app directory to VM ($VM_IP)..."
+      sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:~/
 
-      Write-Host "Copying nginx-app directory to VM ($vm_ip)..."
-      # Creates remote directory first
-      New-SSHSession -ComputerName $vm_ip -Credential $Credential
-      Invoke-SSHCommand -ComputerName $vm_ip -Credential $Credential -Command "mkdir -p ~/nginx-app"
-      # Copy folder
-      Set-SCPFile -LocalFile "$(System.DefaultWorkingDirectory)/modules/nginx-app" -RemotePath "~/nginx-app" -ComputerName $vm_ip -Credential $Credential
-      Remove-SSHSession -ComputerName $vm_ip
 
-# Run setup_nginx.sh on VM
 - task: AzureCLI@2
   displayName: 'Run setup_nginx.sh on VM'
   inputs:
     azureSubscription: 'service-arun-app'
-    scriptType: ps
+    scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
-      cd "$(System.DefaultWorkingDirectory)"
-      $vm_ip = terraform output -raw vm_public_ip
+      cd $(System.DefaultWorkingDirectory)
+      VM_IP=$(terraform output -raw vm_public_ip)
 
-      Write-Host "Connecting to VM ($vm_ip) and running setup_nginx.sh..."
-      $SecurePassword = ConvertTo-SecureString "$(vm_password)" -AsPlainText -Force
-      $Credential = New-Object System.Management.Automation.PSCredential ("$(vm_user)", $SecurePassword)
+      echo "Connecting to VM ($VM_IP) and running setup_nginx.sh..."
+      sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "cd ~/nginx-app && chmod +x setup_nginx.sh && ./setup_nginx.sh"
 
-      New-SSHSession -ComputerName $vm_ip -Credential $Credential
-      Invoke-SSHCommand -ComputerName $vm_ip -Credential $Credential -Command "cd ~/nginx-app && chmod +x setup_nginx.sh && ./setup_nginx.sh"
-      Remove-SSHSession -ComputerName $vm_ip

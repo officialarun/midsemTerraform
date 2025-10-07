@@ -1,0 +1,77 @@
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  vm_user: 'arun'
+  vm_password: 'Pandey@2024Azure!'   
+  terraformVersion: '1.8.0'
+
+steps:
+
+- checkout: self
+
+
+- task: TerraformInstaller@1
+  inputs:
+    terraformVersion: $(terraformVersion)
+
+
+- task: AzureCLI@2
+  displayName: 'Run Terraform'
+  inputs:
+    azureSubscription: 'AzureServiceConnection'  
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      cd $(System.DefaultWorkingDirectory)
+
+      echo "Initializing Terraform..."
+      terraform init -input=false
+
+      echo "Validating Terraform configuration..."
+      terraform validate
+
+      echo "Running Terraform plan..."
+      terraform plan -out=tfplan
+
+      echo "Applying Terraform changes..."
+      terraform apply -auto-approve tfplan
+
+      echo "Fetching VM Public IP..."
+      terraform output -raw vm_public_ip > vm_ip.txt
+      echo "VM Public IP: $(cat vm_ip.txt)"
+
+
+- task: AzureCLI@2
+  displayName: 'Copy nginx-app files to VM'
+  inputs:
+    azureSubscription: 'AzureServiceConnection'
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      cd $(System.DefaultWorkingDirectory)
+      VM_IP=$(terraform output -raw vm_public_ip)
+
+      echo "Installing sshpass..."
+      sudo apt-get update -y
+      sudo apt-get install -y sshpass
+
+      echo "Copying nginx-app directory to VM ($VM_IP)..."
+      sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:~/
+
+
+- task: AzureCLI@2
+  displayName: 'Run setup_nginx.sh on VM'
+  inputs:
+    azureSubscription: 'AzureServiceConnection'
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      cd $(System.DefaultWorkingDirectory)
+      VM_IP=$(terraform output -raw vm_public_ip)
+
+      echo "Connecting to VM ($VM_IP) and running setup_nginx.sh..."
+      sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "cd ~/nginx-app && chmod +x setup_nginx.sh && ./setup_nginx.sh"

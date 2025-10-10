@@ -2,16 +2,16 @@ trigger:
 - master
 
 pool:
-  name: Agent_Arun   # your self-hosted agent pool name
+  name: Agent_Arun   # Ensure this is a Linux self-hosted agent
 
 variables:
   vm_user: 'arun'
-  vm_password: 'Pandey@2024Azure!'    
+  vm_password: 'Password123!'   # Store as secret in pipeline
   terraformVersion: '1.8.0'
 
 steps:
 
-# Step 1: Checkout your repository
+# Step 1: Checkout repository
 - checkout: self
 
 # Step 2: Install Terraform
@@ -19,36 +19,35 @@ steps:
   inputs:
     terraformVersion: $(terraformVersion)
 
-# Step 3: Run Terraform to create VM
+# Step 3: Terraform Init / Plan / Apply
 - task: AzureCLI@2
-  displayName: 'Run Terraform'
+  displayName: 'Terraform Init / Plan / Apply'
   inputs:
-    azureSubscription: 'service-arun-app'  
+    azureSubscription: 'service-arun-app'
     scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
-      cd $(System.DefaultWorkingDirectory)
+      echo "Using Azure CLI authentication for Terraform..."
+      export ARM_USE_AZURECLI_AUTH=true
 
-      # Optional: clean previous Terraform artifacts
+      cd $(System.DefaultWorkingDirectory)
       rm -rf .terraform tfplan vm_ip.txt || true
 
-      echo "Initializing Terraform..."
-      terraform init -reconfigure -upgrade -input=false
-
-      echo "Validating Terraform configuration..."
+      echo "Initializing Terraform backend..."
+      terraform init -reconfigure -input=false
       terraform validate
 
-      echo "Running Terraform plan..."
+      echo "Creating Terraform plan..."
       terraform plan -out=tfplan -input=false
 
-      echo "Applying Terraform changes..."
+      echo "Applying Terraform plan..."
       terraform apply -auto-approve tfplan
 
       echo "Fetching VM Public IP..."
       terraform output -raw vm_public_ip > vm_ip.txt
       cat vm_ip.txt
 
-# Step 4: Copy nginx-app to VM
+# Step 4: Copy nginx-app files to VM
 - task: AzureCLI@2
   displayName: 'Copy nginx-app files to VM'
   inputs:
@@ -59,16 +58,22 @@ steps:
       cd $(System.DefaultWorkingDirectory)
       VM_IP=$(cat vm_ip.txt)
 
-      echo "Installing sshpass if needed..."
+      if [ -z "$VM_IP" ]; then
+        echo "Error: VM IP not found. Terraform apply likely failed."
+        exit 1
+      fi
+
+      echo "Checking if sshpass is installed..."
       if ! command -v sshpass &> /dev/null; then
         sudo apt-get update -y
         sudo apt-get install -y sshpass
       fi
 
-      echo "Copying nginx-app directory to VM ($VM_IP)..."
-      sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:/home/$(vm_user)/
+      export VM_PASS=$(vm_password)
+      echo "Copying nginx-app to VM $VM_IP..."
+      sshpass -p $VM_PASS scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:/home/$(vm_user)/
 
-# Step 5: Run setup_nginx.sh on the VM
+# Step 5: Run setup_nginx.sh on VM
 - task: AzureCLI@2
   displayName: 'Run setup_nginx.sh on VM'
   inputs:
@@ -84,8 +89,9 @@ steps:
         exit 1
       fi
 
-      echo "Connecting to VM ($VM_IP) and running setup_nginx.sh..."
-      sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "
+      export VM_PASS=$(vm_password)
+      echo "Running setup_nginx.sh on VM $VM_IP..."
+      sshpass -p $VM_PASS ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "
         cd ~/nginx-app &&
         chmod +x setup_nginx.sh &&
         ./setup_nginx.sh

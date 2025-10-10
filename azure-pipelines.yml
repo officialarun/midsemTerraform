@@ -19,12 +19,11 @@ steps:
   inputs:
     terraformVersion: $(terraformVersion)
 
-# Step 3: Terraform Init / Plan / Apply
 - task: AzureCLI@2
   displayName: 'Terraform Init / Plan / Apply'
   inputs:
     azureSubscription: 'service-arun-app'
-    addSpnToEnvironment: true          # <-- Key addition
+    addSpnToEnvironment: true
     scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
@@ -33,19 +32,26 @@ steps:
       cd $(System.DefaultWorkingDirectory)
       rm -rf .terraform tfplan vm_ip.txt || true
 
-      echo "Initializing Terraform backend..."
+      echo "Setting Terraform Azure environment variables..."
+      export ARM_CLIENT_ID=$servicePrincipalId
+      export ARM_CLIENT_SECRET=$servicePrincipalKey
+      export ARM_TENANT_ID=$tenantId
+      export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+      echo "Checking SPN authentication..."
+      az account show
+
+      echo "Initializing Terraform backend with SPN credentials..."
       terraform init -reconfigure -input=false
+
       terraform validate
-
-      echo "Creating Terraform plan..."
       terraform plan -out=tfplan -input=false
-
-      echo "Applying Terraform plan..."
       terraform apply -auto-approve tfplan
 
       echo "Fetching VM Public IP..."
       terraform output -raw vm_public_ip > vm_ip.txt
       cat vm_ip.txt
+
 
 # Step 4: Copy nginx-app files to VM
 - task: AzureCLI@2

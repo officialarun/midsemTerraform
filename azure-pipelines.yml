@@ -14,19 +14,9 @@ steps:
 # Step 1: Checkout your repository
 - checkout: self
 
-- script: |
-    echo "Cleaning working directory..."
-    rm -rf $(System.DefaultWorkingDirectory)/*
-  displayName: 'Clean Working Directory'
-
-
 # Step 2: Install Terraform
-- task: TerraformInstaller@1
-  inputs:
-    terraformVersion: $(terraformVersion)
-
 - task: AzureCLI@2
-  displayName: 'Run Terraform'
+  displayName: 'Terraform Setup and Apply'
   inputs:
     azureSubscription: 'service-arun-app'
     scriptType: bash
@@ -34,27 +24,42 @@ steps:
     inlineScript: |
       cd $(System.DefaultWorkingDirectory)
 
-      # Export SP credentials for Terraform
+      # Install Terraform (inline)
+      echo "Installing Terraform..."
+      wget https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_linux_amd64.zip
+      unzip terraform_1.8.0_linux_amd64.zip
+      sudo mv terraform /usr/local/bin/
+      terraform version
+
+      # Clean any previous terraform state in this workspace
+      rm -rf .terraform tfplan vm_ip.txt
+
+      # Export SP credentials
       export ARM_CLIENT_ID=$servicePrincipalId
       export ARM_CLIENT_SECRET=$servicePrincipalKey
       export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
       export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
 
-      echo "Initializing Terraform and downloading providers..."
+      # Terraform workflow
       terraform init -upgrade -reconfigure -input=false
-
-      echo "Validating Terraform configuration..."
       terraform validate
-
-      echo "Running Terraform plan..."
       terraform plan -var-file="environments/dev.tfvars" -out=tfplan -input=false
+      terraform apply -auto-approve -input=false tfplan
 
-      echo "Applying Terraform changes..."
-      terraform apply -auto-approve -input=false "tfplan"
+      # Save VM IP
+      VM_IP=$(terraform output -raw vm_public_ip)
+      echo $VM_IP > vm_ip.txt
 
-      echo "Fetching VM Public IP..."
-      terraform output -raw vm_public_ip > vm_ip.txt
-      cat vm_ip.txt
+      # Copy nginx files and run setup
+      sudo apt-get update -y
+      sudo apt-get install -y sshpass
+
+      sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:/home/$(vm_user)/
+      sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "
+        cd ~/nginx-app &&
+        chmod +x setup_nginx.sh &&
+        ./setup_nginx.sh
+      "
 
 
 - task: AzureCLI@2

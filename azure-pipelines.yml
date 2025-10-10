@@ -62,37 +62,37 @@ steps:
       "
 
 
-- task: AzureCLI@2
-  displayName: 'Copy nginx-app files to VM'
-  inputs:
-    azureSubscription: 'service-arun-app'
-    scriptType: bash
-    scriptLocation: inlineScript
-    inlineScript: |
-      cd $(System.DefaultWorkingDirectory)
-      VM_IP=$(cat vm_ip.txt)
+# - task: AzureCLI@2
+#   displayName: 'Copy nginx-app files to VM'
+#   inputs:
+#     azureSubscription: 'service-arun-app'
+#     scriptType: bash
+#     scriptLocation: inlineScript
+#     inlineScript: |
+#       cd $(System.DefaultWorkingDirectory)
+#       VM_IP=$(cat vm_ip.txt)
 
-      echo "Installing sshpass..."
-      sudo apt-get update -y
-      sudo apt-get install -y sshpass
+#       echo "Installing sshpass..."
+#       sudo apt-get update -y
+#       sudo apt-get install -y sshpass
 
-      echo "Copying nginx-app directory to VM ($VM_IP)..."
-      sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:/home/$(vm_user)/
+#       echo "Copying nginx-app directory to VM ($VM_IP)..."
+#       sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:/home/$(vm_user)/
 
-- task: AzureCLI@2
-  displayName: 'Run setup_nginx.sh on VM'
-  inputs:
-    azureSubscription: 'service-arun-app'
-    scriptType: bash
-    scriptLocation: inlineScript
-    inlineScript: |
-      cd $(System.DefaultWorkingDirectory)
-      VM_IP=$(cat vm_ip.txt)
+# - task: AzureCLI@2
+#   displayName: 'Run setup_nginx.sh on VM'
+#   inputs:
+#     azureSubscription: 'service-arun-app'
+#     scriptType: bash
+#     scriptLocation: inlineScript
+#     inlineScript: |
+#       cd $(System.DefaultWorkingDirectory)
+#       VM_IP=$(cat vm_ip.txt)
 
-      echo "Connecting to VM ($VM_IP) and running setup_nginx.sh..."
-      sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "
-        cd ~/nginx-app &&
-        chmod +x setup_nginx.sh &&
-        ./setup_nginx.sh
-      "
+#       echo "Connecting to VM ($VM_IP) and running setup_nginx.sh..."
+#       sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "
+#         cd ~/nginx-app &&
+#         chmod +x setup_nginx.sh &&
+#         ./setup_nginx.sh
+#       "
 

@@ -1,24 +1,31 @@
+# -----------------------------
+# Resource Group
+# -----------------------------
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
 }
 
+# -----------------------------
+# Virtual Network
+# -----------------------------
 resource "azurerm_virtual_network" "vnet" {
   name                = "${var.env}-vnet"
-  address_space       = ["10.0.0.0/16"]
+  address_space       = var.vnet_address_space
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
 }
 
+# -----------------------------
+# Subnet
+# -----------------------------
 resource "azurerm_subnet" "subnet" {
   name                 = "${var.env}-subnet"
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = ["10.0.1.0/24"]
+  address_prefixes     = var.subnet_prefixes
 
-  # Ensure subnet waits for VNet
   depends_on = [
     azurerm_virtual_network.vnet
   ]
 }
-

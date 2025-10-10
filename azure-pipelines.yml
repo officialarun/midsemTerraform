@@ -5,7 +5,7 @@ pool:
   name: Agent_Arun   # Linux self-hosted agent
 
 variables:
-  vm_user: 'arun'
+  vm_user: 'azureuser'
   vm_password: 'Password123!'   # Store as secret in pipeline
   terraformVersion: '1.8.0'
 
@@ -96,6 +96,13 @@ steps:
       fi
 
       export VM_PASS=$(vm_password)
+
+      echo "Waiting for ssh..."
+      for i in {1..12}; do
+        nc -zv $VM_IP 22 &>/dev/null && break
+        echo "SSH not ready, retry $i/12..."
+        sleep 10
+      done
       echo "Running setup_nginx.sh on VM $VM_IP..."
       sshpass -p $VM_PASS ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "
         cd ~/nginx-app &&

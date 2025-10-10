@@ -1,8 +1,8 @@
 trigger:
-- master
+- feature
 
 pool:
-  name: Agent_Arun   # Ensure this is a Linux self-hosted agent
+  name: Agent_Arun   # Linux self-hosted agent
 
 variables:
   vm_user: 'arun'
@@ -24,11 +24,11 @@ steps:
   displayName: 'Terraform Init / Plan / Apply'
   inputs:
     azureSubscription: 'service-arun-app'
+    addSpnToEnvironment: true          # <-- Key addition
     scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
-      echo "Using Azure CLI authentication for Terraform..."
-      export ARM_USE_AZURECLI_AUTH=true
+      echo "Terraform using SPN credentials from service connection"
 
       cd $(System.DefaultWorkingDirectory)
       rm -rf .terraform tfplan vm_ip.txt || true

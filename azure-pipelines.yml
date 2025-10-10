@@ -23,11 +23,17 @@ steps:
 - task: AzureCLI@2
   displayName: 'Run Terraform'
   inputs:
-    azureSubscription: 'service-arun-app'  
+    azureSubscription: 'service-arun-app'
     scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
       cd $(System.DefaultWorkingDirectory)
+
+      # Export SP credentials from Azure DevOps service connection
+      export ARM_CLIENT_ID=$servicePrincipalId
+      export ARM_CLIENT_SECRET=$servicePrincipalKey
+      export ARM_SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+      export ARM_TENANT_ID=$(az account show --query tenantId -o tsv)
 
       echo "Initializing Terraform..."
       terraform init -reconfigure -input=false
@@ -36,16 +42,16 @@ steps:
       terraform validate
 
       echo "Running Terraform plan..."
-      terraform plan -var-file="environments/dev.tfvars" -out=tfplan
+      terraform plan -var-file="environments/dev.tfvars" -out=tfplan -input=false
 
       echo "Applying Terraform changes..."
-      terraform apply -var-file="environments/dev.tfvars" -auto-approve tfplan
+      terraform apply -auto-approve -input=false "tfplan"
 
       echo "Fetching VM Public IP..."
       terraform output -raw vm_public_ip > vm_ip.txt
       cat vm_ip.txt
 
-# Step 4: Copy nginx-app to VM
+# Step 4: Copy nginx-app to VM using vm_ip.txt
 - task: AzureCLI@2
   displayName: 'Copy nginx-app files to VM'
   inputs:
@@ -54,7 +60,9 @@ steps:
     scriptLocation: inlineScript
     inlineScript: |
       cd $(System.DefaultWorkingDirectory)
-      VM_IP=$(terraform output -raw vm_public_ip)
+
+      # Read the VM public IP from file
+      VM_IP=$(cat vm_ip.txt)
 
       echo "Installing sshpass..."
       sudo apt-get update -y
@@ -63,7 +71,7 @@ steps:
       echo "Copying nginx-app directory to VM ($VM_IP)..."
       sshpass -p "$(vm_password)" scp -o StrictHostKeyChecking=no -r modules/nginx-app $(vm_user)@$VM_IP:/home/$(vm_user)/
 
-# Step 5: Run setup_nginx.sh on the VM
+# Step 5: Run setup_nginx.sh on the VM using vm_ip.txt
 - task: AzureCLI@2
   displayName: 'Run setup_nginx.sh on VM'
   inputs:
@@ -72,7 +80,9 @@ steps:
     scriptLocation: inlineScript
     inlineScript: |
       cd $(System.DefaultWorkingDirectory)
-      VM_IP=$(terraform output -raw vm_public_ip)
+
+      # Read the VM public IP from file
+      VM_IP=$(cat vm_ip.txt)
 
       echo "Connecting to VM ($VM_IP) and running setup_nginx.sh..."
       sshpass -p "$(vm_password)" ssh -o StrictHostKeyChecking=no $(vm_user)@$VM_IP "
@@ -80,4 +90,3 @@ steps:
         chmod +x setup_nginx.sh &&
         ./setup_nginx.sh
       "
-

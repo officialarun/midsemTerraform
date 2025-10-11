@@ -29,7 +29,11 @@ az storage container create \
 - **azure-pipeline.yml** – Azure DevOps pipeline configuration.
 
 ---
+## Project Setup Screenshot
 
+![VM Creation](./screenshots/pipeline_success.png)
+
+---
 ## Deployment Steps
 
 ### 1. Terraform Setup
@@ -54,6 +58,11 @@ az storage container create \
   - Install Docker
   - Build the Dockerized Nginx image
   - Run the container mapping ports 80 and 443
+
+---
+## Folder structure for terraform code
+
+![VM Creation](./screenshots/folder_structure.png)
 
 ---
 
@@ -106,6 +115,11 @@ ssh: connect to host <IP> port 22: Connection refused
 - Terraform authentication differs for users vs service principals.
 - Automating SSH connections in pipelines requires timing checks and correct credentials.
 - Debugging Azure connectivity often involves checking NSG, VM status, and SSH service.
+
+---
+## SSL working :Accessible on domain
+
+![VM Creation](./screenshots/nginx_over_domain.png)
 
 ---
 
@@ -163,3 +177,5 @@ The setup includes:
 
 ```bash
 scp -r nginx-app/* azureuser@<VM_PUBLIC_IP>:~/nginx-app/
+
+

@@ -130,6 +130,7 @@ ssh azureuser@<VM_PUBLIC_IP>
 Once logged in, the Nginx app can be accessed via:
 http://<VM_PUBLIC_IP>
 Also accessible on my own domain: https://devopsenthusiasts.solutions
+```
 
 
 
@@ -176,6 +177,7 @@ The setup includes:
 ### Step 1: Copy files to the VM
 
 ```bash
-scp -r nginx-app/* azureuser@<VM_PUBLIC_IP>:~/nginx-app/
+scp -r nginx-app/* azureuser@<VM_PUBLIC_IP>:~/nginx-app/ 
+```
 
 
